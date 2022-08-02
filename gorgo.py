@@ -57,7 +57,7 @@ def auth_attempt(attempt):
     if "[SUCCESS]" in output:
         tqdm.write(f'{Fore.GREEN}AUTHENTICATION SUCCESSFUL! {Fore.YELLOW}{service}://{username}:{password}@{ip}:{port}{Style.RESET_ALL}')
         tqdm.write(f'{Fore.GREEN}{output}{Style.RESET_ALL}')
-        with open(outfile+'.pwned', 'a') as f:
+        with open(f'{outfile}.pwned', 'a') as f:
             f.write(json.dumps(attempt) + os.linesep)
             f.close()
         pwned += 1
@@ -96,15 +96,18 @@ def generate_permutations(hosts, usernames, passwords, protocols):
     for password in passwords:
         for username in usernames:
             for protocol in protocols:
-                    service = protocol.split(":")[0]
-                    port = protocol.split(":")[1]
-                    for host in hosts:
-                        attempts.append({
-                        'ip':host,
-                        'username':username,
-                        'password':password, 
-                        'service':service,
-                        'port':port})
+                service = protocol.split(":")[0]
+                port = protocol.split(":")[1]
+                attempts.extend(
+                    {
+                        'ip': host,
+                        'username': username,
+                        'password': password,
+                        'service': service,
+                        'port': port,
+                    }
+                    for host in hosts
+                )
 
     return attempts
 
@@ -113,9 +116,17 @@ def generate_permutations_nmap(hosts, usernames, passwords, protocols):
 
     for password in passwords:
         for username in usernames:
-            for host in hosts:
-                if host["service"] in protocols:
-                    attempts.append({'ip':host["ip"], 'username':username, 'password':password, 'service':host["service"], 'port':host["port"]})
+            attempts.extend(
+                {
+                    'ip': host["ip"],
+                    'username': username,
+                    'password': password,
+                    'service': host["service"],
+                    'port': host["port"],
+                }
+                for host in hosts
+                if host["service"] in protocols
+            )
 
     return attempts
 
@@ -144,9 +155,8 @@ def parse_nmap(filename, protocols):
     for host in nmap.hosts:
         for service in host.services:
             svc = service.service.lower()
-            if service.state == 'open':
-                if svc in protocols:
-                    attack_vectors.append({'ip':host.address, 'port':service.port, 'service':svc})
+            if service.state == 'open' and svc in protocols:
+                attack_vectors.append({'ip':host.address, 'port':service.port, 'service':svc})
 
     return attack_vectors
 
@@ -154,9 +164,17 @@ def parse_csv(filename):
     attempts = []
     with open(filename, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-        
-        for row in reader:
-            attempts.append({'ip':row[0], 'username':row[1], 'password':row[2], 'service':row[3], 'port':row[4]})
+
+        attempts.extend(
+            {
+                'ip': row[0],
+                'username': row[1],
+                'password': row[2],
+                'service': row[3],
+                'port': row[4],
+            }
+            for row in reader
+        )
 
     return attempts
 
